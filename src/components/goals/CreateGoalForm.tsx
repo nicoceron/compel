@@ -23,6 +23,8 @@ export function CreateGoalForm() {
     unitType: "check-ins",
     initialBufferDays: "0",
   });
+  
+  const [noEndDate, setNoEndDate] = useState(false);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -40,6 +42,11 @@ export function CreateGoalForm() {
         throw new Error("Not authenticated");
       }
 
+      // If no end date is selected, set it to 100 years in the future
+      const endDate = noEndDate 
+        ? new Date(new Date(formData.startDate).getTime() + 100 * 365.25 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
+        : formData.endDate;
+      
       const { error: insertError } = await supabase.from("goals").insert({
         user_id: user.id,
         title: formData.title,
@@ -47,7 +54,7 @@ export function CreateGoalForm() {
         stake_amount: parseFloat(formData.stakeAmount),
         stake_recipient_type: formData.stakeRecipientType,
         start_date: formData.startDate,
-        end_date: formData.endDate,
+        end_date: endDate,
         check_in_frequency: formData.checkInFrequency,
         target_value: parseFloat(formData.targetValue),
         unit_type: formData.unitType,
@@ -91,43 +98,42 @@ export function CreateGoalForm() {
       />
 
       {/* Quantitative Goal Settings */}
-      <div className="space-y-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-        <h3 className="text-sm font-semibold text-gray-900 uppercase">
+      <div className="space-y-4 p-6 bg-gray-50 rounded-lg border border-gray-200">
+        <h3 className="text-base font-semibold text-gray-900">
           Commit to at Least
         </h3>
         
-        <div className="flex items-end gap-4">
-          <div className="flex-1">
-            <Input
-              label="Target Amount"
-              type="number"
-              step="0.01"
-              min="0.01"
-              value={formData.targetValue}
-              onChange={(e) =>
-                setFormData({ ...formData, targetValue: e.target.value })
-              }
-              required
-              placeholder="3"
-            />
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Input
+            label="Target Amount*"
+            type="number"
+            step="0.01"
+            min="0.01"
+            value={formData.targetValue}
+            onChange={(e) =>
+              setFormData({ ...formData, targetValue: e.target.value })
+            }
+            required
+            placeholder="60"
+          />
           
-          <div className="flex-1">
-            <Input
-              label="Units"
-              type="text"
-              value={formData.unitType}
-              onChange={(e) =>
-                setFormData({ ...formData, unitType: e.target.value })
-              }
-              required
-              placeholder="E.g., miles, books, runs, sessions..."
-              helperText="What are your units for this goal?"
-            />
-          </div>
+          <Input
+            label="Units*"
+            type="text"
+            value={formData.unitType}
+            onChange={(e) =>
+              setFormData({ ...formData, unitType: e.target.value })
+            }
+            required
+            placeholder="minutes, sessions, miles, etc."
+          />
         </div>
+        
+        <p className="text-xs text-gray-600 -mt-2">
+          What are your units for this goal?
+        </p>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 pt-2">
           <input
             type="checkbox"
             id="initialBuffer"
@@ -196,27 +202,49 @@ export function CreateGoalForm() {
         ]}
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Input
-          label="Start Date"
-          type="date"
-          value={formData.startDate}
-          onChange={(e) =>
-            setFormData({ ...formData, startDate: e.target.value })
-          }
-          required
-        />
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Input
+            label="Start Date*"
+            type="date"
+            value={formData.startDate}
+            onChange={(e) =>
+              setFormData({ ...formData, startDate: e.target.value })
+            }
+            required
+          />
 
-        <Input
-          label="End Date"
-          type="date"
-          value={formData.endDate}
-          onChange={(e) =>
-            setFormData({ ...formData, endDate: e.target.value })
-          }
-          required
-          min={formData.startDate}
-        />
+          {!noEndDate && (
+            <Input
+              label="End Date*"
+              type="date"
+              value={formData.endDate}
+              onChange={(e) =>
+                setFormData({ ...formData, endDate: e.target.value })
+              }
+              required={!noEndDate}
+              min={formData.startDate}
+            />
+          )}
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="noEndDate"
+            checked={noEndDate}
+            onChange={(e) => {
+              setNoEndDate(e.target.checked);
+              if (e.target.checked) {
+                setFormData({ ...formData, endDate: "" });
+              }
+            }}
+            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+          />
+          <label htmlFor="noEndDate" className="text-sm text-gray-700">
+            No end date (ongoing goal)
+          </label>
+        </div>
       </div>
 
       {error && (
