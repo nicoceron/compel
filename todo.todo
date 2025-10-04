@@ -1,0 +1,8 @@
+compel:
+    - add basic supabase setup
+    - make a very compeling landing page
+data vis:
+    - add an arkashian graphs just like beeminders
+    - add anki streaks graph
+payment:
+    - add stripe integration
