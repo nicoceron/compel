@@ -1,82 +1,239 @@
 "use client";
 
 import { CheckIn } from "@/types";
-import { LineChart, Line, XAxis, YAxis, ResponsiveContainer } from "recharts";
+import { useEffect, useRef } from "react";
+import * as d3 from "d3";
 
 interface MiniGoalGraphProps {
   checkIns: CheckIn[];
   startDate: string;
   endDate: string;
+  frequency: string;
 }
 
 export function MiniGoalGraph({
   checkIns,
   startDate,
   endDate,
+  frequency,
 }: MiniGoalGraphProps) {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
+  const svgRef = useRef<SVGSVGElement>(null);
 
-  // Calculate datapoints
-  const dataPoints: { day: number; progress: number; goal: number }[] = [];
+  useEffect(() => {
+    if (!svgRef.current) return;
 
-  const sortedCheckIns = [...checkIns]
-    .filter((ci) => ci.status === "success")
-    .sort(
-      (a, b) =>
-        new Date(a.check_in_date).getTime() -
-        new Date(b.check_in_date).getTime()
-    );
+    // Clear previous content
+    const svg = d3.select(svgRef.current);
+    svg.selectAll("*").remove();
 
-  // Total days in the goal period
-  const totalDays =
-    (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
-  const totalExpected = Math.max(sortedCheckIns.length, 5);
+    // Dimensions
+    const width = 140;
+    const height = 70;
+    const margin = { top: 4, right: 4, bottom: 4, left: 4 };
+    const innerWidth = width - margin.left - margin.right;
+    const innerHeight = height - margin.top - margin.bottom;
 
-  // Generate data points
-  const dataPointsCount = 20;
-  for (let i = 0; i <= dataPointsCount; i++) {
-    const day = (i / dataPointsCount) * totalDays;
-    const dayDate = new Date(start.getTime() + day * 24 * 60 * 60 * 1000);
+    svg.attr("width", width).attr("height", height);
 
-    // Count check-ins up to this day
-    const checkInsUpToDay = sortedCheckIns.filter(
-      (ci) => new Date(ci.check_in_date) <= dayDate
-    ).length;
+    // Parse dates
+    const start = new Date(startDate);
+    const end = new Date(endDate);
 
-    // Goal line (linear from 0 to totalExpected)
-    const goalValue = (i / dataPointsCount) * totalExpected;
+    // Calculate rate
+    let rate = 1;
+    switch (frequency) {
+      case "daily":
+        rate = 1;
+        break;
+      case "weekly":
+        rate = 1 / 7;
+        break;
+      case "biweekly":
+        rate = 1 / 14;
+        break;
+      case "monthly":
+        rate = 1 / 30;
+        break;
+    }
 
-    dataPoints.push({
-      day: i,
-      progress: checkInsUpToDay,
-      goal: goalValue,
+    // Process check-ins
+    const sortedCheckIns = [...checkIns]
+      .filter((ci) => ci.status === "success")
+      .sort(
+        (a, b) =>
+          new Date(a.check_in_date).getTime() -
+          new Date(b.check_in_date).getTime()
+      );
+
+    // Scales
+    const totalDays = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
+    const totalExpected = totalDays * rate;
+    const maxCheckIns = Math.max(sortedCheckIns.length + 2, totalExpected * 1.2, 5);
+
+    const xScale = d3
+      .scaleTime()
+      .domain([start, end])
+      .range([0, innerWidth]);
+
+    const yScale = d3
+      .scaleLinear()
+      .domain([0, maxCheckIns])
+      .range([innerHeight, 0]);
+
+    // Create main group
+    const g = svg
+      .append("g")
+      .attr("transform", `translate(${margin.left},${margin.top})`);
+
+    // Define patterns
+    const defs = svg.append("defs");
+
+    const safePatternId = `safe-mini-${Math.random().toString(36).substr(2, 9)}`;
+    const safePattern = defs
+      .append("pattern")
+      .attr("id", safePatternId)
+      .attr("patternUnits", "userSpaceOnUse")
+      .attr("width", 6)
+      .attr("height", 6)
+      .attr("patternTransform", "rotate(45)");
+
+    safePattern
+      .append("rect")
+      .attr("width", 6)
+      .attr("height", 6)
+      .attr("fill", "#FFF9E6");
+
+    safePattern
+      .append("line")
+      .attr("x1", 0)
+      .attr("y1", 0)
+      .attr("x2", 0)
+      .attr("y2", 6)
+      .attr("stroke", "#FFD700")
+      .attr("stroke-width", 3);
+
+    const dangerPatternId = `danger-mini-${Math.random().toString(36).substr(2, 9)}`;
+    const dangerPattern = defs
+      .append("pattern")
+      .attr("id", dangerPatternId)
+      .attr("patternUnits", "userSpaceOnUse")
+      .attr("width", 6)
+      .attr("height", 6)
+      .attr("patternTransform", "rotate(45)");
+
+    dangerPattern
+      .append("rect")
+      .attr("width", 6)
+      .attr("height", 6)
+      .attr("fill", "#FFF5F5");
+
+    dangerPattern
+      .append("line")
+      .attr("x1", 0)
+      .attr("y1", 0)
+      .attr("x2", 0)
+      .attr("y2", 6)
+      .attr("stroke", "#FFB6C1")
+      .attr("stroke-width", 2);
+
+    // Goal line coordinates
+    const goalY0 = yScale(0);
+    const goalY1 = yScale(totalExpected);
+
+    // Safe zone
+    g.append("path")
+      .attr("d", `
+        M 0 ${goalY0}
+        L ${innerWidth} ${goalY1}
+        L ${innerWidth} 0
+        L 0 0
+        Z
+      `)
+      .attr("fill", `url(#${safePatternId})`)
+      .attr("opacity", 0.4);
+
+    // Danger zone
+    g.append("path")
+      .attr("d", `
+        M 0 ${goalY0}
+        L ${innerWidth} ${goalY1}
+        L ${innerWidth} ${innerHeight}
+        L 0 ${innerHeight}
+        Z
+      `)
+      .attr("fill", `url(#${dangerPatternId})`)
+      .attr("opacity", 0.35);
+
+    // Bright red goal line
+    g.append("line")
+      .attr("x1", 0)
+      .attr("y1", goalY0)
+      .attr("x2", innerWidth)
+      .attr("y2", goalY1)
+      .attr("stroke", "#DC2626")
+      .attr("stroke-width", 2);
+
+    // Progress line
+    if (sortedCheckIns.length > 0) {
+      const pathData: string[] = [];
+      let currentCount = 0;
+      
+      pathData.push(`M ${xScale(start)} ${yScale(0)}`);
+      
+      sortedCheckIns.forEach((checkIn) => {
+        const checkInDate = new Date(checkIn.check_in_date);
+        const x = xScale(checkInDate);
+        
+        pathData.push(`L ${x} ${yScale(currentCount)}`);
+        currentCount++;
+        pathData.push(`L ${x} ${yScale(currentCount)}`);
+      });
+
+      g.append("path")
+        .attr("d", pathData.join(" "))
+        .attr("stroke", "#1F2937")
+        .attr("stroke-width", 1.5)
+        .attr("fill", "none");
+    }
+
+    // Datapoints
+    const datapoints = sortedCheckIns.map((checkIn, index) => {
+      const checkInDate = new Date(checkIn.check_in_date);
+      const daysElapsed =
+        (checkInDate.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
+      const goalValue = daysElapsed * rate;
+      const actualValue = index + 1;
+      const buffer = (actualValue - goalValue) / rate;
+
+      let color = "#EF4444";
+      if (buffer >= 3) color = "#22C55E";
+      else if (buffer >= 2) color = "#3B82F6";
+      else if (buffer >= 1) color = "#F97316";
+
+      return {
+        date: checkInDate,
+        value: actualValue,
+        color,
+      };
     });
-  }
+
+    g.selectAll(".datapoint")
+      .data(datapoints)
+      .enter()
+      .append("circle")
+      .attr("class", "datapoint")
+      .attr("cx", d => xScale(d.date))
+      .attr("cy", d => yScale(d.value))
+      .attr("r", 2.5)
+      .attr("fill", d => d.color)
+      .attr("stroke", "#FFFFFF")
+      .attr("stroke-width", 1.5);
+  }, [checkIns, startDate, endDate, frequency]);
 
   return (
-    <ResponsiveContainer width={120} height={60}>
-      <LineChart data={dataPoints} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-        <XAxis dataKey="day" hide />
-        <YAxis hide domain={[0, totalExpected]} />
-        <Line
-          type="monotone"
-          dataKey="goal"
-          stroke="#FCD34D"
-          strokeWidth={2}
-          dot={false}
-          isAnimationActive={false}
-        />
-        <Line
-          type="monotone"
-          dataKey="progress"
-          stroke="#3B82F6"
-          strokeWidth={2}
-          dot={false}
-          isAnimationActive={false}
-        />
-      </LineChart>
-    </ResponsiveContainer>
+    <svg
+      ref={svgRef}
+      className="bg-gray-50 rounded border border-gray-300 shadow-sm"
+    ></svg>
   );
 }
-

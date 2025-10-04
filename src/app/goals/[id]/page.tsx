@@ -2,9 +2,10 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { Navigation } from "@/components/layout/Navigation";
 import { GoalGraph } from "@/components/goals/GoalGraph";
+import { GoalActions } from "@/components/goals/GoalActions";
 import { CheckIn, Goal } from "@/types";
 import Link from "next/link";
-import { Button, Badge } from "@/components/ui";
+import { Badge } from "@/components/ui";
 
 export default async function GoalDetailPage({
   params,
@@ -141,6 +142,7 @@ export default async function GoalDetailPage({
               startDate={typedGoal.start_date}
               endDate={typedGoal.end_date}
               frequency={typedGoal.check_in_frequency}
+              goal={typedGoal}
             />
 
             {/* Recent Check-ins */}
@@ -242,38 +244,7 @@ export default async function GoalDetailPage({
             </div>
 
             {/* Actions */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Actions</h3>
-              <div className="space-y-3">
-                <Button className="w-full" variant="primary">
-                  Add Check-in
-                </Button>
-                <Button className="w-full" variant="ghost">
-                  Edit Goal
-                </Button>
-                <Button className="w-full" variant="ghost">
-                  Pause Goal
-                </Button>
-                <Button className="w-full" variant="ghost">
-                  View Transactions
-                </Button>
-              </div>
-            </div>
-
-            {/* Danger Zone */}
-            {typedGoal.status === "active" && (
-              <div className="bg-red-50 rounded-lg border border-red-200 p-6">
-                <h3 className="text-lg font-semibold text-red-900 mb-4">
-                  Danger Zone
-                </h3>
-                <p className="text-sm text-red-700 mb-4">
-                  Once you delete a goal, there is no going back. This action cannot be undone.
-                </p>
-                <Button className="w-full" variant="ghost">
-                  Delete Goal
-                </Button>
-              </div>
-            )}
+            <GoalActions goal={typedGoal} />
           </div>
         </div>
       </main>

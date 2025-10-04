@@ -105,6 +105,7 @@ export function GoalRow({ goal, checkIns }: GoalRowProps) {
                 checkIns={checkIns}
                 startDate={goal.start_date}
                 endDate={goal.end_date}
+                frequency={goal.check_in_frequency}
               />
             </div>
           </div>
