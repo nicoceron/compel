@@ -42,11 +42,11 @@ export function GoalCard({ goal }: GoalCardProps) {
       <CardHeader>
         <div className="flex items-start justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            <h3 className="text-lg font-semibold text-gray-900">
               {goal.title}
             </h3>
             {goal.description && (
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              <p className="text-sm text-gray-600 mt-1">
                 {goal.description}
               </p>
             )}
@@ -60,44 +60,44 @@ export function GoalCard({ goal }: GoalCardProps) {
       <CardBody>
         <div className="space-y-3">
           <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-600 dark:text-gray-400">
+            <span className="text-sm text-gray-600">
               Stake Amount
             </span>
-            <span className="text-lg font-bold text-gray-900 dark:text-white">
+            <span className="text-lg font-bold text-gray-900">
               ${goal.stake_amount}
             </span>
           </div>
 
           <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-600 dark:text-gray-400">
+            <span className="text-sm text-gray-600">
               Recipient
             </span>
-            <span className="text-sm font-medium text-gray-900 dark:text-white">
+            <span className="text-sm font-medium text-gray-900">
               {goal.stake_recipient_type.replace("_", " ")}
             </span>
           </div>
 
           <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-600 dark:text-gray-400">
+            <span className="text-sm text-gray-600">
               Check-in Frequency
             </span>
-            <span className="text-sm font-medium text-gray-900 dark:text-white">
+            <span className="text-sm font-medium text-gray-900">
               {goal.check_in_frequency.charAt(0).toUpperCase() +
                 goal.check_in_frequency.slice(1)}
             </span>
           </div>
 
-          <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
+          <div className="pt-3 border-t border-gray-200">
             <div className="flex justify-between text-sm">
-              <span className="text-gray-600 dark:text-gray-400">
+              <span className="text-gray-600">
                 {formatDate(goal.start_date)}
               </span>
-              <span className="text-gray-600 dark:text-gray-400">
+              <span className="text-gray-600">
                 {formatDate(goal.end_date)}
               </span>
             </div>
             {goal.status === "active" && (
-              <p className="text-sm text-blue-600 dark:text-blue-400 mt-2">
+              <p className="text-sm text-blue-600 text-blue-400 mt-2">
                 {getDaysRemaining()} days remaining
               </p>
             )}

@@ -49,11 +49,15 @@ export function CreateGoalForm() {
         status: "active",
       });
 
-      if (insertError) throw insertError;
+      if (insertError) {
+        console.error("Supabase error:", insertError);
+        throw new Error(insertError.message || insertError.hint || "Failed to create goal");
+      }
 
       router.push("/goals");
       router.refresh();
     } catch (err) {
+      console.error("Goal creation error:", err);
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
@@ -154,7 +158,7 @@ export function CreateGoalForm() {
       </div>
 
       {error && (
-        <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200 text-sm">
+        <div className="p-3 rounded-lg bg-red-50 text-red-800 text-sm">
           {error}
         </div>
       )}

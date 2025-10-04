@@ -16,25 +16,25 @@ export default async function NewGoalPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50">
       <Navigation />
 
       <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+          <h1 className="text-3xl font-bold text-gray-900">
             Create New Goal
           </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">
+          <p className="text-gray-600 mt-2">
             Set up a new commitment with real stakes
           </p>
         </div>
 
         <Card variant="bordered">
           <CardHeader>
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+            <h2 className="text-xl font-semibold text-gray-900">
               Goal Details
             </h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+            <p className="text-sm text-gray-600 mt-1">
               Define your commitment and what&apos;s at stake
             </p>
           </CardHeader>
@@ -45,11 +45,11 @@ export default async function NewGoalPage() {
         </Card>
 
         {/* Info Card */}
-        <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-          <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">
+        <div className="mt-6 p-4 bg-blue-50 bg-blue-900/20 rounded-lg border border-blue-200 border-blue-800">
+          <h3 className="text-sm font-semibold text-blue-900 text-blue-100 mb-2">
             How Compel Works
           </h3>
-          <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
+          <ul className="text-sm text-blue-800 text-blue-200 space-y-1">
             <li>• Set a goal with a monetary stake</li>
             <li>• Choose where the money goes if you fail</li>
             <li>• Check in regularly to prove your progress</li>

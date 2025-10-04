@@ -98,13 +98,13 @@ export function AuthForm({ mode }: AuthFormProps) {
       />
 
       {error && (
-        <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200 text-sm">
+        <div className="p-3 rounded-lg bg-red-50 text-red-800 text-sm">
           {error}
         </div>
       )}
 
       {message && (
-        <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200 text-sm">
+        <div className="p-3 rounded-lg bg-green-50 text-green-800 text-sm">
           {message}
         </div>
       )}

@@ -16,18 +16,18 @@ export function StatsCard({ title, value, icon, trend }: StatsCardProps) {
       <CardBody className="p-6">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+            <p className="text-sm font-medium text-gray-600">
               {title}
             </p>
-            <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">
+            <p className="text-3xl font-bold text-gray-900 mt-2">
               {value}
             </p>
             {trend && (
               <p
                 className={`text-sm mt-2 ${
                   trend.isPositive
-                    ? "text-green-600 dark:text-green-400"
-                    : "text-red-600 dark:text-red-400"
+                    ? "text-green-600"
+                    : "text-red-600"
                 }`}
               >
                 {trend.isPositive ? "↑" : "↓"} {Math.abs(trend.value)}%
@@ -35,7 +35,7 @@ export function StatsCard({ title, value, icon, trend }: StatsCardProps) {
             )}
           </div>
           {icon && (
-            <div className="text-blue-600 dark:text-blue-400">{icon}</div>
+            <div className="text-blue-600 ">{icon}</div>
           )}
         </div>
       </CardBody>
