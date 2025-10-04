@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { Navigation } from "@/components/layout/Navigation";
+import { TimezoneBanner } from "@/components/layout/TimezoneBanner";
 import { GoalRow } from "@/components/dashboard/GoalRow";
 import { CheckIn } from "@/types";
 import Link from "next/link";
@@ -45,10 +46,14 @@ export default async function DashboardPage() {
   const failedGoals = goals?.filter((g) => g.status === "failed").length || 0;
 
   const activeGoalsList = goals?.filter((g) => g.status === "active") || [];
+  
+  // Get user timezone from metadata
+  const userTimezone = user.user_metadata?.timezone || null;
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Navigation />
+      <TimezoneBanner userTimezone={userTimezone} userId={user.id} />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 

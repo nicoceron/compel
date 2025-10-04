@@ -3,6 +3,7 @@
 import { CheckIn, Goal } from "@/types";
 import { useEffect, useRef, useState } from "react";
 import * as d3 from "d3";
+import { parseLocalDate } from "@/utils/dateUtils";
 
 interface GoalGraphProps {
   checkIns: CheckIn[];
@@ -46,9 +47,9 @@ export function GoalGraph({
       .attr("viewBox", `0 0 ${width} ${height}`)
       .attr("style", "max-width: 100%; height: auto;");
 
-    // Parse dates
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    // Parse dates as local dates to avoid timezone issues
+    const start = parseLocalDate(startDate);
+    const end = parseLocalDate(endDate);
     const today = new Date();
 
     // Calculate rate
@@ -73,16 +74,31 @@ export function GoalGraph({
       .filter((ci) => ci.status === "success")
       .sort(
         (a, b) =>
-          new Date(a.check_in_date).getTime() -
-          new Date(b.check_in_date).getTime()
+          parseLocalDate(a.check_in_date).getTime() -
+          parseLocalDate(b.check_in_date).getTime()
       );
 
     console.log("Sorted check-ins:", sortedCheckIns.length, sortedCheckIns);
 
+    // Calculate rate based on target value and frequency
+    const targetValue = goal?.target_value || 1;
+    const initialBuffer = goal?.initial_buffer_days || 0;
+    
     // Scales
     const totalDays = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
-    const totalExpected = totalDays * rate;
-    const maxCheckIns = Math.max(sortedCheckIns.length + 5, totalExpected * 1.2, 10);
+    const totalExpected = totalDays * rate * targetValue;
+    
+    // Calculate cumulative values from check-ins
+    const cumulativeValues = sortedCheckIns.reduce((acc, checkIn) => {
+      const lastValue = acc.length > 0 ? acc[acc.length - 1] : 0;
+      return [...acc, lastValue + (checkIn.value || 1)];
+    }, [] as number[]);
+    
+    const maxValue = Math.max(
+      cumulativeValues.length > 0 ? Math.max(...cumulativeValues) : 0,
+      totalExpected * 1.2,
+      targetValue * 5
+    );
 
     const xScale = d3
       .scaleTime()
@@ -91,7 +107,7 @@ export function GoalGraph({
 
     const yScale = d3
       .scaleLinear()
-      .domain([0, maxCheckIns])
+      .domain([0, maxValue])
       .range([innerHeight, 0]);
 
     // Create main group
@@ -150,9 +166,9 @@ export function GoalGraph({
       .attr("stroke", "#FFB6C1")
       .attr("stroke-width", 3);
 
-    // Goal line coordinates
-    const goalY0 = yScale(0);
-    const goalY1 = yScale(totalExpected);
+    // Goal line coordinates (with initial buffer)
+    const goalY0 = yScale(initialBuffer * rate * targetValue);
+    const goalY1 = yScale(totalExpected + (initialBuffer * rate * targetValue));
 
     // Safe zone (above goal line)
     g.append("path")
@@ -228,12 +244,12 @@ export function GoalGraph({
     ];
 
     buffers.forEach(({ days, color }) => {
-      const bufferAmount = rate * days;
+      const bufferAmount = rate * days * targetValue;
       g.append("line")
         .attr("x1", 0)
-        .attr("y1", yScale(bufferAmount))
+        .attr("y1", yScale(bufferAmount + (initialBuffer * rate * targetValue)))
         .attr("x2", innerWidth)
-        .attr("y2", yScale(totalExpected + bufferAmount))
+        .attr("y2", yScale(totalExpected + bufferAmount + (initialBuffer * rate * targetValue)))
         .attr("stroke", color)
         .attr("stroke-width", 1.5)
         .attr("stroke-dasharray", "3,3")
@@ -252,28 +268,28 @@ export function GoalGraph({
     // Progress line (step function)
     if (sortedCheckIns.length > 0) {
       const pathData: string[] = [];
-      let currentCount = 0;
+      let currentValue = 0;
       
       // Start at origin
       pathData.push(`M ${xScale(start)} ${yScale(0)}`);
       
       sortedCheckIns.forEach((checkIn) => {
-        const checkInDate = new Date(checkIn.check_in_date);
+        const checkInDate = parseLocalDate(checkIn.check_in_date);
         const x = xScale(checkInDate);
         
         // Horizontal line to check-in date
-        pathData.push(`L ${x} ${yScale(currentCount)}`);
+        pathData.push(`L ${x} ${yScale(currentValue)}`);
         
-        currentCount++;
+        currentValue += (checkIn.value || 1);
         
         // Vertical line up
-        pathData.push(`L ${x} ${yScale(currentCount)}`);
+        pathData.push(`L ${x} ${yScale(currentValue)}`);
       });
       
       // Extend to today
       const todayX = xScale(today);
-      if (todayX > xScale(new Date(sortedCheckIns[sortedCheckIns.length - 1].check_in_date))) {
-        pathData.push(`L ${todayX} ${yScale(currentCount)}`);
+      if (todayX > xScale(parseLocalDate(sortedCheckIns[sortedCheckIns.length - 1].check_in_date))) {
+        pathData.push(`L ${todayX} ${yScale(currentValue)}`);
       }
 
       g.append("path")
@@ -282,7 +298,7 @@ export function GoalGraph({
         .attr("stroke-width", 2.5)
         .attr("fill", "none");
 
-      console.log("Progress path created with", currentCount, "check-ins");
+      console.log("Progress path created with cumulative value:", currentValue);
     }
 
     // Akrasia horizon
@@ -334,13 +350,15 @@ export function GoalGraph({
     }
 
     // Datapoints - MUST render after progress line
-    const datapoints = sortedCheckIns.map((checkIn, index) => {
-      const checkInDate = new Date(checkIn.check_in_date);
+    let runningValue = 0;
+    const datapoints = sortedCheckIns.map((checkIn) => {
+      const checkInDate = parseLocalDate(checkIn.check_in_date);
       const daysElapsed =
         (checkInDate.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
-      const goalValue = daysElapsed * rate;
-      const actualValue = index + 1;
-      const buffer = (actualValue - goalValue) / rate;
+      const goalValue = (daysElapsed * rate * targetValue) + (initialBuffer * rate * targetValue);
+      runningValue += (checkIn.value || 1);
+      const actualValue = runningValue;
+      const buffer = (actualValue - goalValue) / (rate * targetValue);
 
       let color = "#EF4444";
       if (buffer >= 3) color = "#22C55E";

@@ -19,6 +19,9 @@ export function CreateGoalForm() {
     startDate: new Date().toISOString().split("T")[0],
     endDate: "",
     checkInFrequency: "weekly" as CheckInFrequency,
+    targetValue: "1",
+    unitType: "check-ins",
+    initialBufferDays: "0",
   });
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -46,6 +49,9 @@ export function CreateGoalForm() {
         start_date: formData.startDate,
         end_date: formData.endDate,
         check_in_frequency: formData.checkInFrequency,
+        target_value: parseFloat(formData.targetValue),
+        unit_type: formData.unitType,
+        initial_buffer_days: parseInt(formData.initialBufferDays),
         status: "active",
       });
 
@@ -83,6 +89,62 @@ export function CreateGoalForm() {
         placeholder="Provide more details about your goal..."
         rows={4}
       />
+
+      {/* Quantitative Goal Settings */}
+      <div className="space-y-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+        <h3 className="text-sm font-semibold text-gray-900 uppercase">
+          Commit to at Least
+        </h3>
+        
+        <div className="flex items-end gap-4">
+          <div className="flex-1">
+            <Input
+              label="Target Amount"
+              type="number"
+              step="0.01"
+              min="0.01"
+              value={formData.targetValue}
+              onChange={(e) =>
+                setFormData({ ...formData, targetValue: e.target.value })
+              }
+              required
+              placeholder="3"
+            />
+          </div>
+          
+          <div className="flex-1">
+            <Input
+              label="Units"
+              type="text"
+              value={formData.unitType}
+              onChange={(e) =>
+                setFormData({ ...formData, unitType: e.target.value })
+              }
+              required
+              placeholder="E.g., miles, books, runs, sessions..."
+              helperText="What are your units for this goal?"
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="initialBuffer"
+            checked={parseInt(formData.initialBufferDays) > 0}
+            onChange={(e) =>
+              setFormData({
+                ...formData,
+                initialBufferDays: e.target.checked ? "7" : "0",
+              })
+            }
+            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+          />
+          <label htmlFor="initialBuffer" className="text-sm text-gray-700">
+            Start with extra leeway (7-day safety buffer)
+          </label>
+        </div>
+      </div>
 
       <Input
         label="Stake Amount ($)"

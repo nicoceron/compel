@@ -47,6 +47,9 @@ export interface Database {
           start_date: string;
           end_date: string;
           check_in_frequency: CheckInFrequency;
+          target_value: number;
+          unit_type: string;
+          initial_buffer_days: number;
           status: GoalStatus;
           created_at: string;
           updated_at: string;
@@ -62,6 +65,9 @@ export interface Database {
           start_date: string;
           end_date: string;
           check_in_frequency: CheckInFrequency;
+          target_value?: number;
+          unit_type?: string;
+          initial_buffer_days?: number;
           status?: GoalStatus;
           created_at?: string;
           updated_at?: string;
@@ -77,6 +83,9 @@ export interface Database {
           start_date?: string;
           end_date?: string;
           check_in_frequency?: CheckInFrequency;
+          target_value?: number;
+          unit_type?: string;
+          initial_buffer_days?: number;
           status?: GoalStatus;
           created_at?: string;
           updated_at?: string;
@@ -89,6 +98,7 @@ export interface Database {
           user_id: string;
           check_in_date: string;
           status: CheckInStatus;
+          value: number;
           notes: string | null;
           evidence_url: string | null;
           created_at: string;
@@ -99,6 +109,7 @@ export interface Database {
           user_id: string;
           check_in_date: string;
           status: CheckInStatus;
+          value?: number;
           notes?: string | null;
           evidence_url?: string | null;
           created_at?: string;
@@ -109,6 +120,7 @@ export interface Database {
           user_id?: string;
           check_in_date?: string;
           status?: CheckInStatus;
+          value?: number;
           notes?: string | null;
           evidence_url?: string | null;
           created_at?: string;

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui";
 import { Goal } from "@/types";
 import { useRouter } from "next/navigation";
+import { getBrowserTimezone } from "@/utils/dateUtils";
 
 interface GoalActionsProps {
   goal: Goal;
@@ -12,6 +13,7 @@ interface GoalActionsProps {
 export function GoalActions({ goal }: GoalActionsProps) {
   const router = useRouter();
   const [isAddingCheckIn, setIsAddingCheckIn] = useState(false);
+  const [checkInValue, setCheckInValue] = useState(goal.target_value?.toString() || "1");
   const [checkInNotes, setCheckInNotes] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -27,7 +29,9 @@ export function GoalActions({ goal }: GoalActionsProps) {
         body: JSON.stringify({
           goal_id: goal.id,
           status: "success",
+          value: parseFloat(checkInValue),
           notes: checkInNotes,
+          timezone: getBrowserTimezone(),
         }),
       });
 
@@ -35,6 +39,7 @@ export function GoalActions({ goal }: GoalActionsProps) {
         throw new Error("Failed to add check-in");
       }
 
+      setCheckInValue(goal.target_value?.toString() || "1");
       setCheckInNotes("");
       setIsAddingCheckIn(false);
       router.refresh();
@@ -132,10 +137,27 @@ export function GoalActions({ goal }: GoalActionsProps) {
           </div>
         ) : (
           <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                How much did you do? ({goal.unit_type})
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder={`e.g., ${goal.target_value}`}
+                value={checkInValue}
+                onChange={(e) => setCheckInValue(e.target.value)}
+              />
+              <p className="text-xs text-gray-600 mt-1">
+                Target: {goal.target_value} {goal.unit_type} per {goal.check_in_frequency}
+              </p>
+            </div>
             <textarea
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Add notes (optional)"
-              rows={3}
+              rows={2}
               value={checkInNotes}
               onChange={(e) => setCheckInNotes(e.target.value)}
             />
@@ -153,6 +175,7 @@ export function GoalActions({ goal }: GoalActionsProps) {
                 variant="ghost"
                 onClick={() => {
                   setIsAddingCheckIn(false);
+                  setCheckInValue(goal.target_value?.toString() || "1");
                   setCheckInNotes("");
                 }}
                 disabled={isLoading}

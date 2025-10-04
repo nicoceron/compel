@@ -4,6 +4,7 @@ import { Goal, CheckIn } from "@/types";
 import Link from "next/link";
 import { MiniGoalGraph } from "./MiniGoalGraph";
 import { useState, useEffect } from "react";
+import { calculateDerailmentTime } from "@/utils/dateUtils";
 
 interface GoalRowProps {
   goal: Goal;
@@ -13,15 +14,33 @@ interface GoalRowProps {
 export function GoalRow({ goal, checkIns }: GoalRowProps) {
   const [timeRemaining, setTimeRemaining] = useState<string>("");
 
+  // Calculate current cumulative value
+  const getCurrentValue = () => {
+    return checkIns
+      .filter(ci => ci.status === "success")
+      .reduce((sum, ci) => sum + (ci.value || 1), 0);
+  };
+
   // Update timer every second
   useEffect(() => {
     const updateTimer = () => {
-      const end = new Date(goal.end_date);
+      const currentValue = getCurrentValue();
+      
+      // Calculate when we'll derail based on current progress
+      const derailDate = calculateDerailmentTime(
+        currentValue,
+        goal.target_value || 1,
+        goal.check_in_frequency,
+        goal.start_date,
+        goal.end_date,
+        goal.initial_buffer_days || 0
+      );
+      
       const now = new Date();
-      const diff = end.getTime() - now.getTime();
+      const diff = derailDate.getTime() - now.getTime();
       
       if (diff < 0) {
-        setTimeRemaining("Overdue");
+        setTimeRemaining("DERAILED!");
         return;
       }
 
@@ -45,31 +64,44 @@ export function GoalRow({ goal, checkIns }: GoalRowProps) {
     const interval = setInterval(updateTimer, 1000);
 
     return () => clearInterval(interval);
-  }, [goal.end_date]);
+  }, [goal, checkIns]);
   const getUrgencyLevel = () => {
-    const end = new Date(goal.end_date);
+    const currentValue = getCurrentValue();
+    const derailDate = calculateDerailmentTime(
+      currentValue,
+      goal.target_value || 1,
+      goal.check_in_frequency,
+      goal.start_date,
+      goal.end_date,
+      goal.initial_buffer_days || 0
+    );
+    
     const now = new Date();
-    const hoursRemaining = (end.getTime() - now.getTime()) / (1000 * 60 * 60);
+    const hoursRemaining = (derailDate.getTime() - now.getTime()) / (1000 * 60 * 60);
     const daysRemaining = hoursRemaining / 24;
 
-    if (hoursRemaining < 24) {
+    if (hoursRemaining < 0) {
+      return { level: "derailed", color: "bg-red-200 border-red-400" };
+    } else if (hoursRemaining < 24) {
       return { level: "critical", color: "bg-red-100 border-red-300" };
     } else if (daysRemaining < 2) {
       return { level: "urgent", color: "bg-orange-100 border-orange-300" };
+    } else if (daysRemaining < 3) {
+      return { level: "soon", color: "bg-blue-100 border-blue-300" };
     } else if (daysRemaining < 7) {
-      return { level: "soon", color: "bg-yellow-100 border-yellow-300" };
+      return { level: "safe", color: "bg-green-100 border-green-300" };
     }
-    return { level: "normal", color: "bg-white border-gray-200" };
+    return { level: "verysafe", color: "bg-white border-gray-200" };
   };
 
   const formatUrgency = () => {
-    if (timeRemaining === "Overdue") {
-      return { text: "Overdue", urgency: "OVERDUE" };
+    if (timeRemaining === "DERAILED!") {
+      return { text: "DERAILED!", urgency: "PAY $" + goal.stake_amount };
     }
 
     return {
-      text: timeRemaining ? `${timeRemaining} remaining` : "Calculating...",
-      urgency: timeRemaining ? `Due in ${timeRemaining} or pay $${goal.stake_amount}` : "Loading...",
+      text: timeRemaining ? `${timeRemaining} until derail` : "Calculating...",
+      urgency: timeRemaining ? `Add data in ${timeRemaining} or pay $${goal.stake_amount}` : "Loading...",
     };
   };
 
@@ -102,6 +134,7 @@ export function GoalRow({ goal, checkIns }: GoalRowProps) {
           <div className="col-span-12 md:col-span-2 flex items-center justify-center">
             <div className="bg-gray-50 border border-gray-200 rounded p-2">
               <MiniGoalGraph
+                goal={goal}
                 checkIns={checkIns}
                 startDate={goal.start_date}
                 endDate={goal.end_date}
@@ -146,13 +179,17 @@ export function GoalRow({ goal, checkIns }: GoalRowProps) {
           <div className="col-span-6 md:col-span-1 flex justify-end">
             <div
               className={`w-3 h-3 rounded-full ${
-                urgencyInfo.level === "critical"
+                urgencyInfo.level === "derailed"
+                  ? "bg-black"
+                  : urgencyInfo.level === "critical"
                   ? "bg-red-500"
                   : urgencyInfo.level === "urgent"
                   ? "bg-orange-500"
                   : urgencyInfo.level === "soon"
-                  ? "bg-yellow-500"
-                  : "bg-green-500"
+                  ? "bg-blue-500"
+                  : urgencyInfo.level === "safe"
+                  ? "bg-green-500"
+                  : "bg-green-400"
               }`}
               title={urgencyText.text}
             ></div>

@@ -1,11 +1,13 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { Navigation } from "@/components/layout/Navigation";
+import { TimezoneBanner } from "@/components/layout/TimezoneBanner";
 import { GoalGraph } from "@/components/goals/GoalGraph";
 import { GoalActions } from "@/components/goals/GoalActions";
 import { CheckIn, Goal } from "@/types";
 import Link from "next/link";
 import { Badge } from "@/components/ui";
+import { formatLocalDate } from "@/utils/dateUtils";
 
 export default async function GoalDetailPage({
   params,
@@ -72,10 +74,14 @@ export default async function GoalDetailPage({
     const successCount = typedCheckIns.filter((ci) => ci.status === "success").length;
     return Math.round((successCount / typedCheckIns.length) * 100);
   };
+  
+  // Get user timezone from metadata
+  const userTimezone = user.user_metadata?.timezone || null;
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Navigation />
+      <TimezoneBanner userTimezone={userTimezone} userId={user.id} />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
@@ -172,12 +178,15 @@ export default async function GoalDetailPage({
                           ></div>
                           <div>
                             <p className="text-sm font-medium text-gray-900">
-                              {new Date(checkIn.check_in_date).toLocaleDateString("en-US", {
+                              {formatLocalDate(checkIn.check_in_date, {
                                 weekday: "long",
                                 year: "numeric",
                                 month: "long",
                                 day: "numeric",
                               })}
+                            </p>
+                            <p className="text-xs font-semibold text-blue-600">
+                              {checkIn.value} {typedGoal.unit_type}
                             </p>
                             {checkIn.notes && (
                               <p className="text-xs text-gray-600">
@@ -216,6 +225,12 @@ export default async function GoalDetailPage({
                 Goal Settings
               </h3>
               <div className="space-y-4">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Target Commitment</p>
+                  <p className="text-base font-medium text-gray-900">
+                    {typedGoal.target_value} {typedGoal.unit_type} per {typedGoal.check_in_frequency}
+                  </p>
+                </div>
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Check-in Frequency</p>
                   <p className="text-base font-medium text-gray-900 capitalize">
