@@ -14,17 +14,13 @@ interface GoalRowProps {
 export function GoalRow({ goal, checkIns }: GoalRowProps) {
   const [timeRemaining, setTimeRemaining] = useState<string>("");
 
-  // Calculate current cumulative value
-  const getCurrentValue = () => {
-    return checkIns
-      .filter(ci => ci.status === "success")
-      .reduce((sum, ci) => sum + (ci.value || 1), 0);
-  };
-
   // Update timer every second
   useEffect(() => {
     const updateTimer = () => {
-      const currentValue = getCurrentValue();
+      // Calculate current cumulative value
+      const currentValue = checkIns
+        .filter(ci => ci.status === "success")
+        .reduce((sum, ci) => sum + (ci.value || 1), 0);
       
       // Calculate when we'll derail based on current progress
       const derailDate = calculateDerailmentTime(
@@ -66,7 +62,9 @@ export function GoalRow({ goal, checkIns }: GoalRowProps) {
     return () => clearInterval(interval);
   }, [goal, checkIns]);
   const getUrgencyLevel = () => {
-    const currentValue = getCurrentValue();
+    const currentValue = checkIns
+      .filter(ci => ci.status === "success")
+      .reduce((sum, ci) => sum + (ci.value || 1), 0);
     const derailDate = calculateDerailmentTime(
       currentValue,
       goal.target_value || 1,
