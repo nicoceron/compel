@@ -54,3 +54,18 @@ export interface DashboardStats {
   successRate: number;
 }
 
+// Data aggregation settings
+export type AggregationMethod = "sum" | "max" | "min" | "last" | "first" | "average";
+
+// Trajectory segment for multi-rate goals
+export interface TrajectorySegment {
+  id?: string;
+  goal_id: string;
+  start_date: string;
+  end_date: string;
+  start_value: number;
+  end_value: number;
+  rate: number;
+  created_at?: string;
+}
+

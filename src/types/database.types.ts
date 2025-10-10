@@ -50,6 +50,7 @@ export interface Database {
           target_value: number;
           unit_type: string;
           initial_buffer_days: number;
+          aggregation_method: string;
           status: GoalStatus;
           created_at: string;
           updated_at: string;
@@ -68,6 +69,7 @@ export interface Database {
           target_value?: number;
           unit_type?: string;
           initial_buffer_days?: number;
+          aggregation_method?: string;
           status?: GoalStatus;
           created_at?: string;
           updated_at?: string;
@@ -86,6 +88,7 @@ export interface Database {
           target_value?: number;
           unit_type?: string;
           initial_buffer_days?: number;
+          aggregation_method?: string;
           status?: GoalStatus;
           created_at?: string;
           updated_at?: string;

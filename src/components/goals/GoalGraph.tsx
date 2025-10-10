@@ -4,13 +4,15 @@ import { CheckIn, Goal } from "@/types";
 import { useEffect, useRef, useState } from "react";
 import * as d3 from "d3";
 import { parseLocalDate } from "@/utils/dateUtils";
+import { SafetyCalculator } from "@/utils/safetyCalculator";
+import { AutoFillManager } from "@/utils/autoFillManager";
 
 interface GoalGraphProps {
   checkIns: CheckIn[];
   startDate: string;
   endDate: string;
   frequency: string;
-  goal?: Goal;
+  goal: Goal;
 }
 
 export function GoalGraph({
@@ -37,7 +39,7 @@ export function GoalGraph({
     // Dimensions
     const width = 900;
     const height = 500;
-    const margin = { top: 50, right: 60, bottom: 60, left: 70 };
+    const margin = { top: 50, right: 60, bottom: 80, left: 70 }; // Increased bottom for rotated labels
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
@@ -49,25 +51,40 @@ export function GoalGraph({
 
     // Parse dates as local dates to avoid timezone issues
     const start = parseLocalDate(startDate);
-    const end = parseLocalDate(endDate);
+    const goalEnd = parseLocalDate(endDate);
     const today = new Date();
+    
+    // Beeminder-style: Show from start to akrasia horizon (7 days from today)
+    // instead of entire goal range for long-term goals
+    const akrasiaHorizon = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const effectiveEnd = akrasiaHorizon < goalEnd ? akrasiaHorizon : goalEnd;
+    const end = effectiveEnd;
 
-    // Calculate rate
-    let rate = 1;
+    // Use advanced features for calculations
+    const safetyCalc = new SafetyCalculator(goal);
+    const trajectory = safetyCalc.getTrajectory();
+    
+    // Get rate from frequency and target value
+    const targetValue = goal.target_value || 1;
+    const initialBuffer = goal.initial_buffer_days || 0;
+    
+    let dailyRate = 1;
     switch (frequency) {
       case "daily":
-        rate = 1;
+        dailyRate = 1;
         break;
       case "weekly":
-        rate = 1 / 7;
+        dailyRate = 1 / 7;
         break;
       case "biweekly":
-        rate = 1 / 14;
+        dailyRate = 1 / 14;
         break;
       case "monthly":
-        rate = 1 / 30;
+        dailyRate = 1 / 30;
         break;
     }
+    
+    const ratePerDay = dailyRate * targetValue;
 
     // Process check-ins
     const sortedCheckIns = [...checkIns]
@@ -79,36 +96,97 @@ export function GoalGraph({
       );
 
     console.log("Sorted check-ins:", sortedCheckIns.length, sortedCheckIns);
+    console.log("Rate per day:", ratePerDay, "Target value:", targetValue, "Daily rate:", dailyRate);
 
-    // Calculate rate based on target value and frequency
-    const targetValue = goal?.target_value || 1;
-    const initialBuffer = goal?.initial_buffer_days || 0;
+    // Get current cumulative value and safety status for zoom calculation
+    const currentValue = AutoFillManager.getCurrentValue(checkIns);
+    const safetyStatus = safetyCalc.calculateSafetyStatus(checkIns);
     
-    // Scales
+    // Calculate scales
     const totalDays = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
-    const totalExpected = totalDays * rate * targetValue;
+    const totalExpected = totalDays * ratePerDay + (initialBuffer * ratePerDay);
     
-    // Calculate cumulative values from check-ins
-    const cumulativeValues = sortedCheckIns.reduce((acc, checkIn) => {
-      const lastValue = acc.length > 0 ? acc[acc.length - 1] : 0;
-      return [...acc, lastValue + (checkIn.value || 1)];
-    }, [] as number[]);
+    // Dynamic zoom based on safety buffer (Beeminder-style)
+    let zoomFactor = 1.2; // Default: Show 20% above trajectory
+    
+    if (safetyStatus.isOverdue) {
+      // Already derailed: Show minimal range to emphasize the problem
+      zoomFactor = 1.05;
+    } else if (safetyStatus.daysOfBuffer < 1) {
+      // Critical (< 1 day): Zoom IN tight to show urgency
+      zoomFactor = 1.1;
+    } else if (safetyStatus.daysOfBuffer < 2) {
+      // Urgent (1 day): Still zoomed in to show importance
+      zoomFactor = 1.15;
+    } else if (safetyStatus.daysOfBuffer < 3) {
+      // Soon (2 days): Moderate zoom
+      zoomFactor = 1.2;
+    } else if (safetyStatus.daysOfBuffer < 7) {
+      // Safe (3-6 days): Zoom out a bit to see context
+      zoomFactor = 1.3;
+    } else {
+      // Lots of buffer (7+ days): Zoom OUT to see big picture
+      zoomFactor = 1.5;
+    }
     
     const maxValue = Math.max(
-      cumulativeValues.length > 0 ? Math.max(...cumulativeValues) : 0,
-      totalExpected * 1.2,
-      targetValue * 5
+      currentValue * 1.05, // Show slightly above current progress
+      totalExpected * zoomFactor, // Dynamic zoom based on safety
+      targetValue * 7 // Minimum visible range (1 week worth)
     );
+    
+    console.log(`📏 Zoom: ${zoomFactor}× | Buffer: ${safetyStatus.daysOfBuffer.toFixed(1)}d | Level: ${safetyStatus.level}`);
+
+    // Dynamic X-axis zoom with padding (Beeminder-style)
+    const PRAF = 0.015; // Padding ratio (1.5% on each side)
+    const timeRange = end.getTime() - start.getTime();
+    const startWithPadding = new Date(start.getTime() - PRAF * timeRange);
+    const endWithPadding = new Date(end.getTime() + PRAF * timeRange);
+    const totalDaysVisible = (endWithPadding.getTime() - startWithPadding.getTime()) / (1000 * 60 * 60 * 24);
+
+    // Calculate optimal ticks based on visible days (Beebrain-style)
+    // Keep tick count limited to avoid overlapping
+    let tickCount: number;
+    let tickFormat: string;
+    const maxTicks = 10; // Maximum ticks to show
+    
+    if (totalDaysVisible < 10) {
+      tickCount = Math.min(Math.ceil(totalDaysVisible), maxTicks);
+      tickFormat = "%b %d";
+    } else if (totalDaysVisible < 30) {
+      tickCount = Math.min(6, maxTicks); // ~Weekly
+      tickFormat = "%b %d";
+    } else if (totalDaysVisible < 90) {
+      tickCount = Math.min(6, maxTicks); // ~Bi-weekly
+      tickFormat = "%b %d";
+    } else if (totalDaysVisible < 180) {
+      tickCount = Math.min(6, maxTicks); // ~Monthly
+      tickFormat = "%b";
+    } else if (totalDaysVisible < 365) {
+      tickCount = Math.min(8, maxTicks); // ~Monthly
+      tickFormat = "%b";
+    } else if (totalDaysVisible < 730) {
+      tickCount = Math.min(8, maxTicks); // ~Bi-monthly
+      tickFormat = "%b '%y";
+    } else if (totalDaysVisible < 1825) {
+      tickCount = Math.min(10, maxTicks); // ~Quarterly
+      tickFormat = "%b '%y";
+    } else {
+      tickCount = Math.min(10, maxTicks); // ~Yearly
+      tickFormat = "%Y";
+    }
 
     const xScale = d3
       .scaleTime()
-      .domain([start, end])
+      .domain([startWithPadding, endWithPadding])
       .range([0, innerWidth]);
 
     const yScale = d3
       .scaleLinear()
       .domain([0, maxValue])
       .range([innerHeight, 0]);
+    
+    console.log(`📅 X-Axis: ${totalDaysVisible.toFixed(0)} days visible | ${tickCount} ticks | Format: ${tickFormat}`);
 
     // Create main group
     const g = svg
@@ -166,9 +244,9 @@ export function GoalGraph({
       .attr("stroke", "#FFB6C1")
       .attr("stroke-width", 3);
 
-    // Goal line coordinates (with initial buffer)
-    const goalY0 = yScale(initialBuffer * rate * targetValue);
-    const goalY1 = yScale(totalExpected + (initialBuffer * rate * targetValue));
+    // Goal line coordinates using trajectory
+    const goalY0 = yScale(trajectory.getRequiredValue(start));
+    const goalY1 = yScale(trajectory.getRequiredValue(end));
 
     // Safe zone (above goal line)
     g.append("path")
@@ -236,7 +314,7 @@ export function GoalGraph({
       .attr("stroke", "#E8E8E8")
       .attr("stroke-width", 1);
 
-    // Buffer guide lines
+    // Buffer guide lines using trajectory
     const buffers = [
       { days: 7, color: "#86EFAC" },
       { days: 2, color: "#93C5FD" },
@@ -244,12 +322,15 @@ export function GoalGraph({
     ];
 
     buffers.forEach(({ days, color }) => {
-      const bufferAmount = rate * days * targetValue;
+      const bufferAmount = ratePerDay * days;
+      const bufferY0 = yScale(trajectory.getRequiredValue(start) + bufferAmount);
+      const bufferY1 = yScale(trajectory.getRequiredValue(end) + bufferAmount);
+      
       g.append("line")
         .attr("x1", 0)
-        .attr("y1", yScale(bufferAmount + (initialBuffer * rate * targetValue)))
+        .attr("y1", bufferY0)
         .attr("x2", innerWidth)
-        .attr("y2", yScale(totalExpected + bufferAmount + (initialBuffer * rate * targetValue)))
+        .attr("y2", bufferY1)
         .attr("stroke", color)
         .attr("stroke-width", 1.5)
         .attr("stroke-dasharray", "3,3")
@@ -303,7 +384,7 @@ export function GoalGraph({
 
     // Akrasia horizon
     const akrasiaDate = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-    if (akrasiaDate >= start && akrasiaDate <= end) {
+    if (akrasiaDate >= start && akrasiaDate <= goalEnd) {
       const akrasiaX = xScale(akrasiaDate);
 
       g.append("line")
@@ -353,17 +434,18 @@ export function GoalGraph({
     let runningValue = 0;
     const datapoints = sortedCheckIns.map((checkIn) => {
       const checkInDate = parseLocalDate(checkIn.check_in_date);
-      const daysElapsed =
-        (checkInDate.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
-      const goalValue = (daysElapsed * rate * targetValue) + (initialBuffer * rate * targetValue);
       runningValue += (checkIn.value || 1);
       const actualValue = runningValue;
-      const buffer = (actualValue - goalValue) / (rate * targetValue);
+      
+      // Calculate buffer in days
+      const buffer = trajectory.calculateBuffer(actualValue, checkInDate);
 
-      let color = "#EF4444";
-      if (buffer >= 3) color = "#22C55E";
-      else if (buffer >= 2) color = "#3B82F6";
-      else if (buffer >= 1) color = "#F97316";
+      // Color based on buffer (matching SafetyCalculator levels)
+      let color = "#EF4444"; // Red (< 1 day)
+      if (buffer >= 7) color = "#22C55E"; // Green (7+ days)
+      else if (buffer >= 3) color = "#10B981"; // Darker green (3-6 days)
+      else if (buffer >= 2) color = "#3B82F6"; // Blue (2 days)
+      else if (buffer >= 1) color = "#F97316"; // Orange (1 day)
 
       return {
         date: checkInDate,
@@ -388,18 +470,22 @@ export function GoalGraph({
       .attr("stroke-width", 2.5)
       .style("cursor", "pointer");
 
-    // X-axis
+    // X-axis with dynamic ticks and rotation
     const xAxis = d3
       .axisBottom(xScale)
-      .ticks(10)
-      .tickFormat(d3.timeFormat("%b %d") as never);
+      .ticks(tickCount)
+      .tickFormat(d3.timeFormat(tickFormat) as never);
 
     g.append("g")
       .attr("transform", `translate(0,${innerHeight})`)
       .call(xAxis)
       .selectAll("text")
-      .attr("font-size", 11)
-      .attr("fill", "#6B7280");
+      .attr("font-size", 10)
+      .attr("fill", "#6B7280")
+      .style("text-anchor", "end")
+      .attr("dx", "-0.8em")
+      .attr("dy", "0.15em")
+      .attr("transform", "rotate(-45)");
 
     // Y-axis
     const yAxis = d3.axisLeft(yScale).ticks(8);

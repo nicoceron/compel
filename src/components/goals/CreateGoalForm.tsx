@@ -22,6 +22,7 @@ export function CreateGoalForm() {
     targetValue: "1",
     unitType: "check-ins",
     initialBufferDays: "0",
+    aggregationMethod: "sum",
   });
   
   const [noEndDate, setNoEndDate] = useState(false);
@@ -59,6 +60,7 @@ export function CreateGoalForm() {
         target_value: parseFloat(formData.targetValue),
         unit_type: formData.unitType,
         initial_buffer_days: parseInt(formData.initialBufferDays),
+        aggregation_method: formData.aggregationMethod,
         status: "active",
       });
 
